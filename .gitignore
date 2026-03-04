@@ -1,8 +1,27 @@
+# Maven build output
 target/
-test-output/
-.settings/
-.classpath
-.project
+
+# IDE files
 .idea/
 *.iml
-bin/
+.classpath
+.project
+.settings/
+.vscode/
+
+# TestNG output
+test-output/
+
+# Allure results
+allure-results/
+allure-report/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Compiled files
+*.class
