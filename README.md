@@ -14,8 +14,7 @@ This framework demonstrates enterprise-grade practices including **POJO-based se
 **token-based authentication**, **data-driven testing**, 
 and **CI/CD integration**.
 
-Designed to showcase a scalable architecture that can 
-be adapted for any RESTful API testing needs.
+Designed to showcase a scalable architecture that can be adapted for any RESTful API testing needs.
 
 ---
 
@@ -71,7 +70,11 @@ API-Automation-Framework/
 ├── .gitignore                          # Git ignore rules
 ├── .github/workflows/ci.yml           # GitHub Actions CI/CD
 └── README.md                           # Project documentation
+
+
+
 ✅ Key Features
+
 Feature	Description
 Full CRUD Testing	POST, GET, PUT, PATCH, DELETE operations
 POJO Serialization	Nested Java objects (Booking → BookingDates) with Jackson
@@ -85,7 +88,10 @@ Allure Reporting	Detailed test reports with @Description and @Severity
 Config-Driven	All URLs and credentials externalized in config.properties
 CI/CD Pipeline	GitHub Actions auto-runs tests on push/PR
 Logging	SLF4J integration for request/response logging
+
+
 🔗 API Endpoints Covered
+
 Method	Endpoint	Description	Auth Required
 POST	/booking	Create a new booking	No
 GET	/booking/{id}	Get booking by ID	No
@@ -94,9 +100,11 @@ PUT	/booking/{id}	Update entire booking	✅ Yes (Token)
 PATCH	/booking/{id}	Partial update booking	✅ Yes (Token)
 DELETE	/booking/{id}	Delete a booking	✅ Yes (Token)
 POST	/auth	Generate auth token	No
+
 📄 API Documentation: Restful Booker API Docs
 
 📋 Test Cases
+
 #	Test Name	Type	Priority
 1	Create Booking (POST)	Positive	Critical
 2	Get Booking by ID (GET)	Positive	Critical
@@ -107,7 +115,10 @@ POST	/auth	Generate auth token	No
 7	Verify Deleted Booking	Positive	Normal
 8	Invalid Booking ID (GET)	Negative	Normal
 9	Data-Driven Create (POST)	Data-Driven	Normal
+
+
 ⚙️ Prerequisites
+
 Before running the tests, ensure you have:
 
 Java 17 or higher → Download
@@ -121,6 +132,7 @@ Bash
 java -version
 mvn -version
 git --version
+
 🚀 How to Run Tests
 Option 1: Run via Maven (Recommended)
 Bash
@@ -196,6 +208,6 @@ Data-Driven	TestNG @DataProvider for parameterized tests
 Syed Muttaquee
 QA Automation Engineer | SDET
 
-🔗 LinkedIn
-💻 GitHub
-📧 yameen.muttaquee@gmail.com
+🔗 LinkedIn: www.linkedin.com/in/syed-muttaquee-sdet
+💻 GitHub: https://github.com/syedymn
+📧 Email: yameen.muttaquee@gmail.com
