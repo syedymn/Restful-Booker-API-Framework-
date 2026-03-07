@@ -29,7 +29,7 @@ public class TestBase {
         // Load configuration from properties file
         properties = new Properties();
         FileInputStream fis = new FileInputStream(
-            "src/main/resources/config.properties");
+            "src/test/resources/config.properties");
         properties.load(fis);
 
         // Set Base URI from config file
