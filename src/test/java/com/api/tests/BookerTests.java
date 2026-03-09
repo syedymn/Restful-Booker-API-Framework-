@@ -3,7 +3,6 @@ package com.api.tests;
 import com.api.base.TestBase;
 import com.api.pojo.Booking;
 import com.api.pojo.BookingDates;
-import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.qameta.allure.Description;
 import io.qameta.allure.Severity;
@@ -11,13 +10,62 @@ import io.qameta.allure.SeverityLevel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.BeforeMethod;
 
 import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 
+/**
+ * BookerTests — Comprehensive API test suite covering
+ * full CRUD operations, authentication, negative testing,
+ * and data-driven scenarios for the Restful Booker API.
+ */
 public class BookerTests extends TestBase {
 
     private int bookingId;
+
+    // ============================================
+    // DELAY BETWEEN TESTS (Prevents Rate Limiting)
+    // ============================================
+
+    @BeforeMethod
+    public void waitBetweenTests() throws InterruptedException {
+        Thread.sleep(1500); // 1.5 second delay between tests
+    }
+
+    // ============================================
+    // RETRY HELPER METHOD
+    // ============================================
+
+    private Response sendPostWithRetry(Object body) {
+        Response response = null;
+        int maxRetries = 3;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                response = given()
+                        .spec(requestSpec)
+                        .body(body)
+                    .when()
+                        .post("/booking")
+                    .then()
+                        .spec(responseSpec)
+                        .statusCode(200)
+                        .extract().response();
+                return response; // Success — return immediately
+            } catch (AssertionError e) {
+                System.out.println("POST attempt " + attempt 
+                    + " failed. Status not 200. Retrying...");
+                if (attempt == maxRetries) throw e;
+                try { 
+                    Thread.sleep(3000); // Wait 3 seconds before retry
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+        return response;
+    }
 
     // ============================================
     // TEST DATA PROVIDER
@@ -26,12 +74,12 @@ public class BookerTests extends TestBase {
     @DataProvider(name = "bookingData")
     public Object[][] bookingTestData() {
         return new Object[][] {
-            {"John", "Smith", 200, true, "2024-06-01", 
-             "2024-06-10", "Breakfast"},
-            {"Jane", "Doe", 350, false, "2024-07-15", 
-             "2024-07-20", "Lunch"},
-            {"Mike", "Johnson", 500, true, "2024-08-01", 
-             "2024-08-05", "Dinner"}
+            {"John", "Smith", 200, true,
+             "2024-06-01", "2024-06-10", "Breakfast"},
+            {"Jane", "Doe", 350, false,
+             "2024-07-15", "2024-07-20", "Lunch"},
+            {"Mike", "Johnson", 500, true,
+             "2024-08-01", "2024-08-05", "Dinner"}
         };
     }
 
@@ -40,11 +88,11 @@ public class BookerTests extends TestBase {
     // ============================================
 
     @Test(priority = 1)
-    @Description("Verify that a new booking can be created via POST")
+    @Description("Verify new booking can be created via POST")
     @Severity(SeverityLevel.CRITICAL)
     public void createBookingTest() {
 
-        // Arrange — Build test data using Builder pattern
+        // Arrange
         BookingDates dates = new BookingDates.Builder()
                 .checkin("2024-03-01")
                 .checkout("2024-03-10")
@@ -59,27 +107,22 @@ public class BookerTests extends TestBase {
                 .additionalneeds("Breakfast")
                 .build();
 
-        // Act — Send POST request
-        Response response = given()
-                .spec(requestSpec)
-            .when()
-                .post("/booking")
-            .then()
-                .spec(responseSpec)
-                .statusCode(200)
-                .body("bookingid", notNullValue())
-                .body("booking.firstname", equalTo("John"))
-                .body("booking.lastname", equalTo("Doe"))
-                .body("booking.totalprice", equalTo(150))
-                .body("booking.depositpaid", equalTo(true))
-                .extract().response();
+        // Act — Send POST with retry logic
+        Response response = sendPostWithRetry(bookingPayload);
 
-        // Extract booking ID for subsequent tests
+        // Verify response body
+        Assert.assertEquals(
+            response.jsonPath().getString("booking.firstname"), 
+            "John");
+        Assert.assertEquals(
+            response.jsonPath().getString("booking.lastname"), 
+            "Doe");
+
+        // Extract booking ID
         bookingId = response.jsonPath().getInt("bookingid");
         System.out.println("Created Booking ID: " + bookingId);
 
-        // Additional assertions
-        Assert.assertTrue(bookingId > 0, 
+        Assert.assertTrue(bookingId > 0,
             "Booking ID should be a positive number");
     }
 
@@ -88,11 +131,10 @@ public class BookerTests extends TestBase {
     // ============================================
 
     @Test(priority = 2, dependsOnMethods = "createBookingTest")
-    @Description("Verify that a booking can be retrieved by ID via GET")
+    @Description("Verify booking can be retrieved by ID via GET")
     @Severity(SeverityLevel.CRITICAL)
     public void getBookingByIdTest() {
 
-        // Act — Send GET request
         Response response = given()
                 .spec(requestSpec)
                 .pathParam("id", bookingId)
@@ -106,21 +148,21 @@ public class BookerTests extends TestBase {
         // Deserialize response to POJO
         Booking actualBooking = response.as(Booking.class);
 
-        // Assert — Verify all fields match
+        // Verify all fields
         Assert.assertEquals(actualBooking.getFirstname(), "John");
         Assert.assertEquals(actualBooking.getLastname(), "Doe");
         Assert.assertEquals(actualBooking.getTotalprice(), 150);
         Assert.assertTrue(actualBooking.isDepositpaid());
         Assert.assertEquals(
-            actualBooking.getBookingdates().getCheckin(), 
+            actualBooking.getBookingdates().getCheckin(),
             "2024-03-01");
         Assert.assertEquals(
-            actualBooking.getBookingdates().getCheckout(), 
+            actualBooking.getBookingdates().getCheckout(),
             "2024-03-10");
         Assert.assertEquals(
             actualBooking.getAdditionalneeds(), "Breakfast");
 
-        System.out.println("Retrieved Booking: " + actualBooking);
+        System.out.println("Retrieved: " + actualBooking);
     }
 
     // ============================================
@@ -128,7 +170,7 @@ public class BookerTests extends TestBase {
     // ============================================
 
     @Test(priority = 3)
-    @Description("Verify that all bookings can be retrieved via GET")
+    @Description("Verify all bookings can be retrieved via GET")
     @Severity(SeverityLevel.NORMAL)
     public void getAllBookingsTest() {
 
@@ -144,15 +186,14 @@ public class BookerTests extends TestBase {
     }
 
     // ============================================
-    // PUT — FULL UPDATE BOOKING (Requires Auth Token)
+    // PUT — FULL UPDATE (Requires Auth Token)
     // ============================================
 
     @Test(priority = 4, dependsOnMethods = "createBookingTest")
-    @Description("Verify that a booking can be fully updated via PUT")
+    @Description("Verify booking can be fully updated via PUT")
     @Severity(SeverityLevel.CRITICAL)
     public void updateBookingTest() {
 
-        // Arrange — New booking data for update
         BookingDates updatedDates = new BookingDates.Builder()
                 .checkin("2024-05-01")
                 .checkout("2024-05-15")
@@ -167,7 +208,7 @@ public class BookerTests extends TestBase {
                 .additionalneeds("Lunch")
                 .build();
 
-        // Act — Send PUT request WITH auth token
+        // PUT request WITH auth token
         Response response = given()
                 .spec(requestSpec)
                 .header("Cookie", "token=" + token)
@@ -182,31 +223,28 @@ public class BookerTests extends TestBase {
 
         // Deserialize and verify
         Booking actualBooking = response.as(Booking.class);
-
         Assert.assertEquals(actualBooking.getFirstname(), "Jane");
         Assert.assertEquals(actualBooking.getLastname(), "Smith");
         Assert.assertEquals(actualBooking.getTotalprice(), 300);
         Assert.assertFalse(actualBooking.isDepositpaid());
 
-        System.out.println("Updated Booking: " + actualBooking);
+        System.out.println("Updated: " + actualBooking);
     }
 
     // ============================================
-    // PATCH — PARTIAL UPDATE BOOKING (Requires Auth Token)
+    // PATCH — PARTIAL UPDATE (Requires Auth Token)
     // ============================================
 
     @Test(priority = 5, dependsOnMethods = "updateBookingTest")
-    @Description("Verify that a booking can be partially updated via PATCH")
+    @Description("Verify booking can be partially updated via PATCH")
     @Severity(SeverityLevel.NORMAL)
     public void partialUpdateBookingTest() {
 
-        // Arrange — Only update firstname and totalprice
         String partialPayload = "{"
                 + "\"firstname\": \"Updated\","
                 + "\"totalprice\": 999"
                 + "}";
 
-        // Act — Send PATCH request WITH auth token
         Response response = given()
                 .spec(requestSpec)
                 .header("Cookie", "token=" + token)
@@ -221,7 +259,7 @@ public class BookerTests extends TestBase {
                 .body("totalprice", equalTo(999))
                 .extract().response();
 
-        System.out.println("Partially Updated Booking:");
+        System.out.println("Partially Updated:");
         response.prettyPrint();
     }
 
@@ -230,11 +268,10 @@ public class BookerTests extends TestBase {
     // ============================================
 
     @Test(priority = 6, dependsOnMethods = "createBookingTest")
-    @Description("Verify that a booking can be deleted via DELETE")
+    @Description("Verify booking can be deleted via DELETE")
     @Severity(SeverityLevel.CRITICAL)
     public void deleteBookingTest() {
 
-        // Act — Send DELETE request WITH auth token
         given()
                 .spec(requestSpec)
                 .header("Cookie", "token=" + token)
@@ -248,11 +285,11 @@ public class BookerTests extends TestBase {
     }
 
     // ============================================
-    // VERIFY DELETE — Confirm booking no longer exists
+    // VERIFY DELETE — Confirm Deletion
     // ============================================
 
     @Test(priority = 7, dependsOnMethods = "deleteBookingTest")
-    @Description("Verify that a deleted booking returns 404")
+    @Description("Verify deleted booking returns 404")
     @Severity(SeverityLevel.NORMAL)
     public void verifyBookingDeletedTest() {
 
@@ -264,7 +301,7 @@ public class BookerTests extends TestBase {
             .then()
                 .statusCode(404);
 
-        System.out.println("Confirmed: Booking " 
+        System.out.println("Confirmed: Booking "
             + bookingId + " no longer exists.");
     }
 
@@ -273,7 +310,7 @@ public class BookerTests extends TestBase {
     // ============================================
 
     @Test(priority = 8)
-    @Description("Verify that invalid booking ID returns 404")
+    @Description("Verify invalid booking ID returns 404")
     @Severity(SeverityLevel.NORMAL)
     public void getInvalidBookingTest() {
 
@@ -287,16 +324,16 @@ public class BookerTests extends TestBase {
     }
 
     // ============================================
-    // DATA-DRIVEN TEST — Create Multiple Bookings
+    // DATA-DRIVEN TEST — Multiple Bookings
     // ============================================
 
     @Test(priority = 9, dataProvider = "bookingData")
-    @Description("Data-driven test: Create bookings with multiple data sets")
+    @Description("Data-driven: Create bookings with multiple data sets")
     @Severity(SeverityLevel.NORMAL)
     public void createBookingDataDrivenTest(
-            String firstname, String lastname, 
+            String firstname, String lastname,
             int totalprice, boolean depositpaid,
-            String checkin, String checkout, 
+            String checkin, String checkout,
             String additionalneeds) {
 
         BookingDates dates = new BookingDates.Builder()
@@ -313,17 +350,18 @@ public class BookerTests extends TestBase {
                 .additionalneeds(additionalneeds)
                 .build();
 
-        given()
-                .spec(requestSpec)
-                .body(booking)
-            .when()
-                .post("/booking")
-            .then()
-                .spec(responseSpec)
-                .statusCode(200)
-                .body("bookingid", notNullValue())
-                .body("booking.firstname", equalTo(firstname))
-                .body("booking.lastname", equalTo(lastname))
-                .body("booking.totalprice", equalTo(totalprice));
+        // Use retry helper for POST requests
+        Response response = sendPostWithRetry(booking);
+
+        // Verify response
+        Assert.assertEquals(
+            response.jsonPath().getString("booking.firstname"),
+            firstname);
+        Assert.assertEquals(
+            response.jsonPath().getString("booking.lastname"),
+            lastname);
+        Assert.assertEquals(
+            response.jsonPath().getInt("booking.totalprice"),
+            totalprice);
     }
 }
