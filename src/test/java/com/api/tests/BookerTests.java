@@ -14,6 +14,7 @@ import org.testng.annotations.BeforeMethod;
 
 import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
+import org.testng.SkipException;
 
 /**
  * BookerTests — Comprehensive API test suite covering
@@ -50,18 +51,44 @@ public class BookerTests extends TestBase {
                         .post("/booking")
                     .then()
                         .spec(responseSpec)
-                        .statusCode(200)
-                        .extract().response();
-                return response; // Success — return immediately
+                        .extract().response();  // Extract WITHOUT asserting status code here
+
+                int statusCode = response.getStatusCode();
+
+                if (statusCode == 200) {
+                    return response;  // Success — return immediately
+                } else if (statusCode == 418) {
+                    System.out.println("POST attempt " + attempt
+                        + " returned 418 (server rate-limiting). Waiting 5 seconds before retry...");
+                    if (attempt == maxRetries) {
+                        throw new SkipException(
+                            "Skipping test — Restful Booker API returned 418 after " 
+                            + maxRetries + " attempts. External server issue, not a framework bug."
+                        );
+                    }
+                    Thread.sleep(5000);  // Wait longer for rate-limit to clear
+                } else {
+                    System.out.println("POST attempt " + attempt
+                        + " failed with status " + statusCode + ". Retrying...");
+                    if (attempt == maxRetries) {
+                        response.then().statusCode(200);  // Force the assertion to fail with a clear message
+                    }
+                    Thread.sleep(3000);
+                }
+
+            } catch (SkipException se) {
+                throw se;  // Let TestNG handle the skip — don't swallow it
             } catch (AssertionError e) {
-                System.out.println("POST attempt " + attempt 
-                    + " failed. Status not 200. Retrying...");
+                System.out.println("POST attempt " + attempt
+                    + " failed. Retrying...");
                 if (attempt == maxRetries) throw e;
-                try { 
-                    Thread.sleep(3000); // Wait 3 seconds before retry
+                try {
+                    Thread.sleep(3000);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
             }
         }
         return response;
